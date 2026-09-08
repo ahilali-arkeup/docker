@@ -6,12 +6,22 @@ SHELL ["/bin/bash", "-xo", "pipefail", "-c"]
 # Generate locale C.UTF-8 for postgres and general locale data
 ENV LANG C.UTF-8
 
+# Debian stretch is EOL: repos moved to archive.debian.org and no longer
+# publish valid-until dates, so point there and disable the freshness check.
+RUN sed -i \
+        -e 's|deb.debian.org/debian|archive.debian.org/debian|g' \
+        -e 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' \
+        -e '/stretch-updates/d' \
+        /etc/apt/sources.list \
+    && echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until
+
 # Use backports to avoid install some libs with pip
-RUN echo 'deb http://deb.debian.org/debian stretch-backports main' > /etc/apt/sources.list.d/backports.list
+RUN echo 'deb http://archive.debian.org/debian stretch-backports main' > /etc/apt/sources.list.d/backports.list
 
 # Install some deps, lessc and less-plugin-clean-css, and wkhtmltopdf
 RUN apt-get update \
         && apt-get install -y --no-install-recommends \
+            apt-transport-https \
             ca-certificates \
             curl \
             dirmngr \
@@ -38,7 +48,7 @@ RUN apt-get update \
         && rm -rf /var/lib/apt/lists/* wkhtmltox.deb
 
 # install latest postgresql-client
-RUN echo 'deb http://apt.postgresql.org/pub/repos/apt/ stretch-pgdg main' > /etc/apt/sources.list.d/pgdg.list \
+RUN echo 'deb http://apt-archive.postgresql.org/pub/repos/apt/ stretch-pgdg main' > /etc/apt/sources.list.d/pgdg.list \
         && GNUPGHOME="$(mktemp -d)" \
         && export GNUPGHOME \
         && repokey='B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8' \
@@ -67,8 +77,8 @@ RUN echo "deb http://deb.nodesource.com/node_8.x stretch main" > /etc/apt/source
 
 # Install Odoo
 ENV ODOO_VERSION 12.0
-ARG ODOO_RELEASE=20211006
-ARG ODOO_SHA=f32dcd82b04e9a93e17a7d4b3ab471dc20408253
+ARG ODOO_RELEASE=20221012
+ARG ODOO_SHA=42bd57808208d7c572b6476beac890322dc8959f
 RUN curl -o odoo.deb -sSL http://nightly.odoo.com/${ODOO_VERSION}/nightly/deb/odoo_${ODOO_VERSION}.${ODOO_RELEASE}_all.deb \
         && echo "${ODOO_SHA} odoo.deb" | sha1sum -c - \
         && apt-get update \
